@@ -1,4 +1,4 @@
-"""Email sending with SendGrid"""
+"""Email sending with SendGrid - FIXED VERSION"""
 import os
 from datetime import datetime
 from typing import List, Dict
@@ -10,12 +10,10 @@ def render_template(template_path: str, context: Dict) -> str:
     with open(template_path, 'r') as f:
         template = f.read()
     
-    # Simple replacement for {% for %} loops
-    # This is a simplified version - in production use Jinja2
+    # Build location cards HTML
     locations_html = ""
     if 'locations' in context:
         for loc in context['locations']:
-            # Create location card HTML
             comfort_class = ""
             if loc['comfort_score'] < 6:
                 comfort_class = "low"
@@ -58,34 +56,55 @@ def render_template(template_path: str, context: Dict) -> str:
             </div>
             """
     
-    # Replace template variables
-    template = template.replace('{% for location in locations %}', '')
-    template = template.replace('{% endfor %}', locations_html)
+    # Remove the for loop template tags and insert actual HTML
+    # Find the location loop section
+    loop_start = template.find('{% for location in locations %}')
+    loop_end = template.find('{% endfor %}')
+    
+    if loop_start != -1 and loop_end != -1:
+        # Replace everything between the loop tags with actual HTML
+        before_loop = template[:loop_start]
+        after_loop = template[loop_end + len('{% endfor %}'):]
+        template = before_loop + locations_html + after_loop
+    
+    # Replace simple variables
     template = template.replace('{{ date }}', context.get('date', ''))
     
-    # Handle comparison
+    # Handle comparison section
     if context.get('comparison'):
         template = template.replace('{% if comparison %}', '')
-        template = template.replace('{% endif %}', '', 1)  # First occurrence
         template = template.replace('{{ comparison }}', context['comparison'])
+        # Find and remove the first {% endif %} after comparison
+        comparison_pos = template.find('Comparison:')
+        if comparison_pos != -1:
+            endif_pos = template.find('{% endif %}', comparison_pos)
+            if endif_pos != -1:
+                template = template[:endif_pos] + template[endif_pos + len('{% endif %}'):]
     else:
-        # Remove comparison section
+        # Remove entire comparison section
         start = template.find('{% if comparison %}')
-        end = template.find('{% endif %}', start)
-        if start != -1 and end != -1:
-            template = template[:start] + template[end + 11:]
+        if start != -1:
+            end = template.find('{% endif %}', start)
+            if end != -1:
+                template = template[:start] + template[end + len('{% endif %}'):]
     
-    # Handle chart
+    # Handle chart section
     if context.get('chart'):
         template = template.replace('{% if chart %}', '')
-        template = template.replace('{% endif %}', '')
         template = template.replace('{{ chart }}', context['chart'])
+        # Find and remove the {% endif %} after chart
+        chart_pos = template.find('data:image/png;base64,')
+        if chart_pos != -1:
+            endif_pos = template.find('{% endif %}', chart_pos)
+            if endif_pos != -1:
+                template = template[:endif_pos] + template[endif_pos + len('{% endif %}'):]
     else:
-        # Remove chart section
+        # Remove entire chart section
         start = template.find('{% if chart %}')
-        end = template.find('{% endif %}', start)
-        if start != -1 and end != -1:
-            template = template[:start] + template[end + 11:]
+        if start != -1:
+            end = template.find('{% endif %}', start)
+            if end != -1:
+                template = template[:start] + template[end + len('{% endif %}'):]
     
     return template
 
@@ -93,7 +112,7 @@ def send_email(
     to_email: str,
     subject: str,
     html_content: str,
-    from_email: str = "weather@example.com",
+    from_email: str = "adesh.malisetty@gmail.com",  # CHANGE THIS TO YOUR VERIFIED EMAIL
     sendgrid_api_key: str = None
 ) -> bool:
     """Send email via SendGrid"""

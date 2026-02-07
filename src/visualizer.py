@@ -10,7 +10,7 @@ def create_temperature_chart(weather_data: List[Dict]) -> str:
     
     # Set style
     plt.style.use('seaborn-v0_8-darkgrid')
-    fig, ax = plt.subplots(figsize=(10, 5), facecolor='#f8f9fa')
+    fig, ax = plt.subplots(figsize=(8, 4), facecolor='#f8f9fa')
     ax.set_facecolor('#ffffff')
     
     cities = [w['name'].split(',')[0] for w in weather_data]
@@ -65,7 +65,7 @@ def create_temperature_chart(weather_data: List[Dict]) -> str:
     
     # Convert to base64
     buffer = BytesIO()
-    plt.savefig(buffer, format='png', dpi=100, bbox_inches='tight')
+    plt.savefig(buffer, format='png', dpi=72, bbox_inches='tight')
     buffer.seek(0)
     image_base64 = base64.b64encode(buffer.read()).decode()
     plt.close()

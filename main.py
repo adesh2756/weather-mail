@@ -3,6 +3,8 @@
 import os
 import sys
 from pathlib import Path
+from dotenv import load_dotenv
+load_dotenv()
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / 'src'))
@@ -48,6 +50,7 @@ def main():
     print("📊 Generating temperature chart...")
     chart_base64 = create_temperature_chart(weather_data)
     print("✅ Chart generated")
+    
     
     # Generate comparison
     comparison = generate_comparison_insight(weather_data)
