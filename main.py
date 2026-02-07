@@ -9,9 +9,10 @@ load_dotenv()
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / 'src'))
 
-from weather import get_all_weather_data, generate_comparison_insight, get_email_subject
-from visualizer import create_temperature_chart
+from weather import get_all_weather_data, generate_comparison_insight, get_email_subject, get_pizzazz_diff_text
+from visualizer import create_temperature_chart, create_forecast_chart
 from emailer import send_weather_email
+from history import save_daily_record, get_yesterday_data
 
 def main():
     """Main execution"""
@@ -35,21 +36,56 @@ def main():
         sys.exit(1)
     
     # Fetch weather data
-    print("📡 Fetching weather data...")
+    print("📡 Fetching weather data (Current + Forecast)...")
     weather_data = get_all_weather_data(openweather_api_key)
     
     if not weather_data:
         print("❌ Error: Failed to fetch weather data")
         sys.exit(1)
     
+    # Process history and analytics
+    print("📜 Processing historical data...")
+    previous_data = get_yesterday_data()
+    
+    for city in weather_data:
+        city['temp_diff'] = 0
+        city['prev_date'] = None
+        
+        if previous_data and city['name'] in previous_data['weather']:
+            prev = previous_data['weather'][city['name']]
+            diff = round(city['temp'] - prev['temp'], 1)
+            city['temp_diff'] = diff
+            city['prev_date'] = previous_data['date']
+            
+            # Use new Pizzazz generator
+            city['diff_str'] = get_pizzazz_diff_text(diff)
+        else:
+            # Fallback to forecast trend for immediate analytics
+            city['diff_str'] = "🆕 Starting fresh!"
+            if city.get('forecast') and len(city['forecast']) > 0:
+                try:
+                    # Get tomorrow's max
+                    tomorrow = city['forecast'][0]
+                    # Parse "22°-25°" -> 25.0
+                    tom_high = float(tomorrow['temp_range'].split('-')[1].replace('°', ''))
+                    diff = round(tom_high - city['temp'], 1)
+                    pizzazz = get_pizzazz_diff_text(diff)
+                    city['diff_str'] = f"Outlook: {pizzazz}"
+                except Exception as e:
+                    print(f"Error calculating outlook for {city['name']}: {e}")
+
+    # Save today's data
+    save_daily_record(weather_data)
+    
     print(f"✅ Fetched weather for {len(weather_data)} cities")
     for w in weather_data:
-        print(f"  - {w['name']}: {w['temp']}°C {w['emoji']} (Comfort: {w['comfort_score']}/10)")
+        print(f"  - {w['name']}: {w['temp']}°C {w['emoji']} (Diff: {w.get('diff_str', 'N/A')})")
     
-    # Generate chart
-    print("📊 Generating temperature chart...")
-    chart_base64 = create_temperature_chart(weather_data)
-    print("✅ Chart generated")
+    # Generate charts
+    print("📊 Generating charts...")
+    chart_bytes = create_temperature_chart(weather_data)
+    forecast_chart_bytes = create_forecast_chart(weather_data)
+    print("✅ Charts generated")
     
     
     # Generate comparison
@@ -68,7 +104,8 @@ def main():
     
     success = send_weather_email(
         weather_data=weather_data,
-        chart_base64=chart_base64,
+        chart_bytes=chart_bytes,
+        forecast_chart_bytes=forecast_chart_bytes,
         comparison=comparison,
         subject=subject,
         to_email=recipient_email,

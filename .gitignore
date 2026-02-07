@@ -48,6 +48,9 @@ Thumbs.db
 .coverage
 htmlcov/
 
+# Data
+weather_history.json
+
 # Charts
 *.png
 *.jpg

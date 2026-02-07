@@ -5,8 +5,8 @@ from typing import List, Dict
 import base64
 from io import BytesIO
 
-def create_temperature_chart(weather_data: List[Dict]) -> str:
-    """Create temperature comparison chart and return as base64"""
+def create_temperature_chart(weather_data: List[Dict]) -> bytes:
+    """Create temperature comparison chart and return as bytes"""
     
     # Set style
     plt.style.use('seaborn-v0_8-darkgrid')
@@ -63,14 +63,62 @@ def create_temperature_chart(weather_data: List[Dict]) -> str:
     
     plt.tight_layout()
     
-    # Convert to base64
+    # Convert to bytes
     buffer = BytesIO()
     plt.savefig(buffer, format='png', dpi=72, bbox_inches='tight')
     buffer.seek(0)
-    image_base64 = base64.b64encode(buffer.read()).decode()
+    image_bytes = buffer.getvalue()
     plt.close()
     
-    return image_base64
+    return image_bytes
+
+def create_forecast_chart(weather_data: List[Dict]) -> bytes:
+    """Create 5-day forecast trend chart"""
+    plt.style.use('seaborn-v0_8-darkgrid')
+    fig, ax = plt.subplots(figsize=(8, 4), facecolor='#f8f9fa')
+    ax.set_facecolor('#ffffff')
+    
+    # Plot lines for each city
+    colors = ['#007bff', '#28a745', '#dc3545', '#6f42c1', '#fd7e14']
+    
+    for idx, city_data in enumerate(weather_data):
+        if not city_data.get('forecast'):
+            continue
+            
+        days = [item['day'] for item in city_data['forecast']]
+        # Extract max temps from string "22°-25°" -> 25
+        highs = []
+        for item in city_data['forecast']:
+            try:
+                # Parse "22°-25°"
+                parts = item['temp_range'].replace('°', '').split('-')
+                highs.append(float(parts[1]))
+            except:
+                highs.append(0)
+                
+        color = colors[idx % len(colors)]
+        ax.plot(days, highs, marker='o', linewidth=2, label=city_data['name'].split(',')[0], color=color)
+        
+        # Add values
+        for i, temp in enumerate(highs):
+            ax.annotate(f'{int(temp)}°', (days[i], temp), textcoords="offset points", xytext=(0,10), ha='center', fontsize=8, color=color)
+
+    # Styling
+    ax.set_ylabel('High Temp (°C)', fontsize=10, fontweight='bold')
+    ax.set_title('5-Day Temperature Trend', fontsize=12, fontweight='bold', pad=15)
+    ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=3, fontsize=9)
+    ax.grid(True, alpha=0.3)
+    
+    plt.tight_layout()
+    
+    # Convert to bytes
+    buffer = BytesIO()
+    plt.savefig(buffer, format='png', dpi=72, bbox_inches='tight')
+    buffer.seek(0)
+    image_bytes = buffer.getvalue()
+    plt.close()
+    
+    return image_bytes
 
 def create_comfort_score_visual(weather_data: List[Dict]) -> str:
     """Create comfort score visualization as text/emoji"""

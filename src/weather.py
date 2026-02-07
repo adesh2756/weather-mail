@@ -23,6 +23,54 @@ def fetch_weather(lat: float, lon: float, api_key: str) -> Dict:
     response.raise_for_status()
     return response.json()
 
+def fetch_forecast(lat: float, lon: float, api_key: str) -> Dict:
+    """Fetch 5-day forecast from OpenWeather API"""
+    url = f"https://api.openweathermap.org/data/2.5/forecast"
+    params = {
+        "lat": lat,
+        "lon": lon,
+        "appid": api_key,
+        "units": "metric"
+    }
+    response = requests.get(url, params=params, timeout=10)
+    response.raise_for_status()
+    return response.json()
+
+def process_forecast(forecast_data: Dict) -> List[Dict]:
+    """Simplify forecast to daily highs/lows"""
+    daily_map = {}
+    
+    for item in forecast_data['list']:
+        dt = datetime.fromtimestamp(item['dt'])
+        date_key = dt.strftime('%Y-%m-%d')
+        
+        if date_key not in daily_map:
+            daily_map[date_key] = {
+                'temp_min': item['main']['temp'],
+                'temp_max': item['main']['temp'],
+                'weather_main': item['weather'][0]['main'],
+                'date_obj': dt
+            }
+        else:
+            daily_map[date_key]['temp_min'] = min(daily_map[date_key]['temp_min'], item['main']['temp'])
+            daily_map[date_key]['temp_max'] = max(daily_map[date_key]['temp_max'], item['main']['temp'])
+            # Pick weather at noon if available, or just keep first
+            if dt.hour == 12:
+                daily_map[date_key]['weather_main'] = item['weather'][0]['main']
+    
+    # Convert to list, skip today if partial? No, keep next 5 entries
+    sorted_days = sorted(daily_map.values(), key=lambda x: x['date_obj'])
+    
+    # Return formatted list
+    result = []
+    for day in sorted_days[:5]:
+        result.append({
+            'day': day['date_obj'].strftime('%a'),
+            'temp_range': f"{round(day['temp_min'])}°-{round(day['temp_max'])}°",
+            'emoji': get_weather_emoji(day['weather_main'], day['temp_max'])
+        })
+    return result
+
 def calculate_comfort_score(temp: float, humidity: int, wind_speed: float) -> int:
     """Calculate comfort score 0-10"""
     # Temperature score (optimal: 20-26°C)
@@ -107,13 +155,32 @@ def generate_insight(weather_data: Dict, name: str) -> str:
     
     return insights[0] if insights else "Typical weather for the region"
 
+def get_pizzazz_diff_text(diff: float) -> str:
+    """Generate snarky/fun text for temperature difference"""
+    if diff == 0:
+        return "Same old, same old 😴"
+    elif 0 < diff <= 2:
+        return f"Creeping up 📈 +{diff}°C"
+    elif diff > 2:
+        return f"Heating up! 🔥 +{diff}°C"
+    elif -2 <= diff < 0:
+        return f"Cooling off 📉 {diff}°C"
+    elif diff < -2:
+        return f"Plunging down! 🧊 {diff}°C"
+    return f"{diff}°C change"
+
 def get_all_weather_data(api_key: str) -> List[Dict]:
     """Fetch and analyze weather for all locations"""
     results = []
     
     for loc in LOCATIONS:
         try:
+            # Current Weather
             raw_data = fetch_weather(loc['lat'], loc['lon'], api_key)
+            
+            # Forecast (New)
+            raw_forecast = fetch_forecast(loc['lat'], loc['lon'], api_key)
+            forecast_processed = process_forecast(raw_forecast)
             
             temp = raw_data['main']['temp']
             feels_like = raw_data['main']['feels_like']
@@ -139,6 +206,8 @@ def get_all_weather_data(api_key: str) -> List[Dict]:
                 'emoji': emoji,
                 'personality': personality,
                 'insight': insight,
+                'forecast': forecast_processed, # New field
+                'raw_forecast': raw_forecast # For charting later if needed
             })
         except Exception as e:
             print(f"Error fetching weather for {loc['name']}: {e}")
@@ -155,6 +224,8 @@ def get_all_weather_data(api_key: str) -> List[Dict]:
                 'emoji': '❓',
                 'personality': 'Unknown',
                 'insight': 'Weather data temporarily unavailable',
+                'forecast': [],
+                'raw_forecast': {}
             })
     
     return results
