@@ -1,0 +1,15 @@
+[project]
+name = "weather-mail"
+version = "1.0.0"
+description = "Daily weather digest for multiple cities"
+requires-python = ">=3.11"
+dependencies = [
+    "requests>=2.31.0",
+    "sendgrid>=6.11.0",
+    "matplotlib>=3.8.0",
+    "python-dotenv>=1.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
