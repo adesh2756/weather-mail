@@ -96,26 +96,34 @@ def main():
     subject = get_email_subject(weather_data)
     print(f"📧 Subject: {subject}")
     
-    # Send email
-    print(f"📮 Sending email to {recipient_email}...")
+    # Parse recipients
+    recipients = [email.strip() for email in recipient_email.split(',') if email.strip()]
+    print(f"📮 Sending emails to {len(recipients)} recipients...")
     
     # Get template path
     template_path = Path(__file__).parent / 'templates' / 'email.html'
     
-    success = send_weather_email(
-        weather_data=weather_data,
-        chart_bytes=chart_bytes,
-        forecast_chart_bytes=forecast_chart_bytes,
-        comparison=comparison,
-        subject=subject,
-        to_email=recipient_email,
-        template_path=str(template_path)
-    )
-    
-    if success:
-        print("✅ Email sent successfully!")
+    success_count = 0
+    for email in recipients:
+        print(f"  - Sending to {email}...")
+        if send_weather_email(
+            weather_data=weather_data,
+            chart_bytes=chart_bytes,
+            forecast_chart_bytes=forecast_chart_bytes,
+            comparison=comparison,
+            subject=subject,
+            to_email=email,
+            template_path=str(template_path)
+        ):
+            print(f"    ✅ Sent to {email}")
+            success_count += 1
+        else:
+            print(f"    ❌ Failed to send to {email}")
+            
+    if success_count > 0:
+        print(f"✅ Successfully sent {success_count}/{len(recipients)} emails")
     else:
-        print("❌ Failed to send email")
+        print("❌ Failed to send any emails")
         sys.exit(1)
 
 if __name__ == '__main__':
