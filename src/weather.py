@@ -129,31 +129,52 @@ def get_weather_personality(name: str, temp: float, humidity: int) -> str:
         return f"Breezy {name.split(',')[0]}"
 
 def generate_insight(weather_data: Dict, name: str) -> str:
-    """Generate one insightful fact"""
+    """Generate combined insightful facts"""
     temp = weather_data['main']['temp']
     humidity = weather_data['main']['humidity']
     weather_main = weather_data['weather'][0]['main']
     
     insights = []
     
+    # 1. Precipitation
     if weather_main in ['Rain', 'Drizzle', 'Thunderstorm']:
-        insights.append(f"Rain expected - carry umbrella")
-    elif humidity < 30:
-        insights.append(f"Low humidity - stay hydrated")
-    elif humidity > 75:
-        insights.append(f"High humidity - feels muggy")
+        insights.append("Rain expected - carry umbrella")
     
-    if 20 <= temp <= 26:
-        insights.append(f"Perfect weather for outdoor activities")
-    elif temp > 35:
-        insights.append(f"Very hot - limit sun exposure")
+    # 2. Humidity
+    if humidity >= 75:
+        insights.append("High humidity - feels muggy")
+    elif humidity <= 30:
+        insights.append("Low humidity - stay hydrated")
+    
+    # 3. Temperature
+    if temp > 35:
+        insights.append("Very hot - limit sun exposure")
     elif temp < 15:
-        insights.append(f"Cool weather - dress warmly")
+        insights.append("Cool weather - dress warmly")
+    elif 20 <= temp <= 26:
+        # Only say "Perfect" if no bad weather/humidity so far
+        if not insights:
+            insights.append("Perfect weather for outdoor activities")
+        else:
+            insights.append("Pleasant temperatures")
     
+    # 4. Special
     if 'Srikalahasthi' in name and temp < 28:
-        insights.append(f"Ideal temple visit weather")
+        insights.append("Ideal temple visit weather")
     
-    return insights[0] if insights else "Typical weather for the region"
+    if 'Hyderabad' in name:
+        if weather_main in ['Rain', 'Drizzle']:
+            insights.append("Perfect weather for Mirchi Bajji 🌶️")
+        elif temp < 30:
+            insights.append("Great time for Irani Chai at Charminar ☕")
+            
+    if 'Houston' in name:
+        if temp > 30 or humidity > 80:
+            insights.append("Stay cool with A/C! ❄️")
+        elif 15 <= temp <= 28:
+            insights.append("Perfect for a run in Memorial Park 🏃")
+    
+    return " • ".join(insights) if insights else "Typical weather for the region"
 
 def get_pizzazz_diff_text(diff: float) -> str:
     """Generate snarky/fun text for temperature difference"""
